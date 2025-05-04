@@ -1,138 +1,128 @@
-# Basic Go-Vue Forum
+# Forum Application
 
-Форум с базовым функционалом, построенный на Go (backend) и Vue.js (frontend).
+A full-stack forum application built with Go (backend) and Vue.js (frontend).
 
-## Технологии
+## Features
+
+- User authentication and authorization
+- Post creation, editing, and deletion
+- Comment system
+- Real-time chat using WebSocket
+- User profiles and statistics
+- Admin panel for user management
+
+## Tech Stack
 
 ### Backend
-- Go 1.21
-- Gorilla Mux (маршрутизация)
-- JWT (аутентификация)
-- PostgreSQL (база данных)
-- SQLX (работа с БД)
+- Go
+- PostgreSQL
+- JWT for authentication
+- WebSocket for real-time communication
+- Gorilla Mux for routing
 
 ### Frontend
-- Vue 3
+- Vue.js 3
 - Vue Router
-- Pinia (управление состоянием)
-- Vite (сборка)
+- Pinia for state management
+- Axios for HTTP requests
+- WebSocket for real-time chat
 
-## Функциональность
+## Project Structure
 
-### Пользователи
-- Регистрация и авторизация
-- Профили пользователей
-- Роли (пользователь/админ)
-- Изменение пароля
-
-### Посты
-- Создание, редактирование, удаление постов
-- Просмотр всех постов
-- Фильтрация постов
-
-### Комментарии
-- Добавление комментариев к постам
-- Редактирование и удаление комментариев
-- Древовидная структура комментариев
-
-### Админ-панель
-- Управление пользователями
-- Модерация постов
-- Модерация комментариев
-- Статистика
-
-## Установка и запуск
-
-### Требования
-- Go 1.21+
-- Node.js 18+
-- PostgreSQL 14+
-
-### Backend
-
-```bash
-cd backend
-go mod download
-go run cmd/main.go
+```
+forum-go-vue/
+├── backend/           # Go backend
+│   ├── cmd/          # Main application entry point
+│   ├── internal/     # Internal packages
+│   │   ├── auth/     # Authentication logic
+│   │   ├── database/ # Database operations
+│   │   ├── handlers/ # HTTP handlers
+│   │   ├── middleware/# Middleware functions
+│   │   └── models/   # Data models
+│   └── go.mod        # Go module file
+│
+└── frontend/         # Vue.js frontend
+    ├── src/          # Source files
+    │   ├── components/# Vue components
+    │   ├── stores/   # Pinia stores
+    │   ├── views/    # Page components
+    │   └── router/   # Vue Router configuration
+    └── package.json  # NPM dependencies
 ```
 
-### Frontend
+## Setup and Installation
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### Prerequisites
+- Go 1.21 or later
+- Node.js 18 or later
+- PostgreSQL 15 or later
 
-### База данных
+### Backend Setup
+1. Navigate to the backend directory
+2. Install dependencies:
+   ```bash
+   go mod download
+   ```
+3. Set up the database:
+   ```bash
+   psql -U postgres -f internal/database/init.sql
+   ```
+4. Start the server:
+   ```bash
+   go run cmd/main.go
+   ```
 
-1. Создайте базу данных PostgreSQL
-2. Примените миграции из `backend/internal/database/init.sql`
-3. Настройте подключение в `backend/config/config.go`
+### Frontend Setup
+1. Navigate to the frontend directory
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
 ## API Endpoints
 
-### Аутентификация
-- POST /api/register - Регистрация
-- POST /api/login - Авторизация
-- POST /api/change-password - Смена пароля
+### Authentication
+- POST /api/register - User registration
+- POST /api/login - User login
+- POST /api/change-password - Password change
 
-### Профиль
-- GET /api/profile - Получение профиля
-- GET /api/profile/stats - Статистика пользователя
-- PUT /api/profile/password - Изменение пароля
+### Posts
+- GET /api/posts - Get all posts
+- GET /api/posts/{id} - Get post by ID
+- POST /api/posts - Create post
+- PUT /api/posts/{id} - Update post
+- DELETE /api/posts/{id} - Delete post
 
-### Посты
-- GET /api/posts - Список постов
-- GET /api/posts/{id} - Получение поста
-- POST /api/posts - Создание поста
-- PUT /api/posts/{id} - Обновление поста
-- DELETE /api/posts/{id} - Удаление поста
+### Comments
+- GET /api/posts/{post_id}/comments - Get post comments
+- POST /api/posts/{post_id}/comments - Add comment
+- PUT /api/comments/{id} - Update comment
+- DELETE /api/comments/{id} - Delete comment
 
-### Комментарии
-- GET /api/posts/{post_id}/comments - Комментарии поста
-- POST /api/posts/{post_id}/comments - Создание комментария
-- PUT /api/comments/{id} - Обновление комментария
-- DELETE /api/comments/{id} - Удаление комментария
+### Chat
+- GET /ws/chat - WebSocket endpoint for real-time chat
 
-### Админ
-- GET /api/admin/users - Список пользователей
-- GET /api/admin/posts - Список всех постов
-- GET /api/admin/comments - Список всех комментариев
+### Profile
+- GET /api/profile - Get user profile
+- GET /api/profile/stats - Get user statistics
+- PUT /api/profile/password - Change password
 
-## Безопасность
-- JWT для аутентификации
-- Хеширование паролей (bcrypt)
-- Middleware для проверки ролей
-- CORS настройки
-- Валидация входных данных
+### Admin
+- GET /api/admin/users - Get all users
+- GET /api/admin/users/{id} - Get user by ID
+- PUT /api/admin/users/{id} - Update user
+- DELETE /api/admin/users/{id} - Delete user
 
-## Структура проекта
+## Security Features
+- JWT-based authentication
+- Password hashing
+- Role-based access control
+- CORS protection
+- WebSocket authentication
 
-### Backend
-```
-backend/
-├── cmd/
-│   └── main.go
-├── internal/
-│   ├── auth/
-│   ├── database/
-│   ├── handlers/
-│   ├── middleware/
-│   ├── models/
-│   └── server/
-└── config/
-```
-
-### Frontend
-```
-frontend/
-├── src/
-│   ├── components/
-│   ├── views/
-│   ├── stores/
-│   ├── router/
-│   └── assets/
-├── public/
-└── index.html
-``` 
+## License
+MIT 
