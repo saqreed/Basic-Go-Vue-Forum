@@ -1,90 +1,92 @@
 <template>
     <div class="post-form-container">
       <div class="post-form">
-        <h2>{{ isEdit ? 'Edit Post' : 'Create Post' }}</h2>
+        <h1>{{ isEditing ? 'Редактировать пост' : 'Создать новый пост' }}</h1>
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label for="title">Title</label>
+            <label for="title">Заголовок</label>
             <input
               type="text"
               id="title"
               v-model="title"
               required
-              placeholder="Enter post title"
+              placeholder="Введите заголовок поста"
             />
           </div>
           <div class="form-group">
-            <label for="content">Content</label>
+            <label for="content">Содержание</label>
             <textarea
               id="content"
               v-model="content"
               required
-              placeholder="Write your post content..."
+              placeholder="Введите содержание поста"
               rows="10"
             ></textarea>
           </div>
-          <div class="form-actions">
-            <button type="submit" :disabled="loading">
-              {{ loading ? 'Saving...' : (isEdit ? 'Update' : 'Create') }}
-            </button>
-            <button type="button" @click="cancel" class="cancel-button">
-              Cancel
-            </button>
-          </div>
+          <button type="submit" class="submit-btn">
+            {{ isEditing ? 'Сохранить изменения' : 'Создать пост' }}
+          </button>
         </form>
       </div>
     </div>
   </template>
   
-  <script setup>
-  import { ref, onMounted, computed } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { usePostsStore } from '../stores/posts'
-  import { useAuthStore } from '../stores/auth'
+  <script>
+  import axios from 'axios'
+  import { useRouter, useRoute } from 'vue-router'
+  import { ref, onMounted } from 'vue'
   
-  const route = useRoute()
-  const router = useRouter()
-  const postsStore = usePostsStore()
-  const authStore = useAuthStore()
+  export default {
+    name: 'CreatePost',
+    setup() {
+      const router = useRouter()
+      const route = useRoute()
+      const title = ref('')
+      const content = ref('')
+      const isEditing = ref(false)
+      const postId = ref(null)
   
-  const title = ref('')
-  const content = ref('')
-  const loading = ref(false)
-  const isEdit = computed(() => route.params.id !== undefined)
+      onMounted(async () => {
+        if (route.params.id) {
+          isEditing.value = true
+          postId.value = route.params.id
+          try {
+            const response = await axios.get(`http://localhost:8081/api/posts/${postId.value}`)
+            title.value = response.data.title
+            content.value = response.data.content
+          } catch (error) {
+            console.error('Error fetching post:', error)
+            router.push('/posts')
+          }
+        }
+      })
   
-  onMounted(async () => {
-    if (isEdit.value) {
-      await postsStore.fetchPost(route.params.id)
-      if (postsStore.currentPost) {
-        title.value = postsStore.currentPost.title
-        content.value = postsStore.currentPost.content
+      const handleSubmit = async () => {
+        try {
+          const postData = {
+            title: title.value,
+            content: content.value
+          }
+  
+          if (isEditing.value) {
+            await axios.put(`http://localhost:8081/api/posts/${postId.value}`, postData)
+          } else {
+            await axios.post('http://localhost:8081/api/posts', postData)
+          }
+  
+          router.push('/posts')
+        } catch (error) {
+          console.error('Error saving post:', error)
+        }
+      }
+  
+      return {
+        title,
+        content,
+        handleSubmit,
+        isEditing
       }
     }
-  })
-  
-  const handleSubmit = async () => {
-    loading.value = true
-    try {
-      const postData = {
-        title: title.value,
-        content: content.value
-      }
-  
-      if (isEdit.value) {
-        await postsStore.updatePost(route.params.id, postData)
-      } else {
-        await postsStore.createPost(postData)
-      }
-      router.push('/posts')
-    } catch (error) {
-      console.error('Failed to save post:', error)
-    } finally {
-      loading.value = false
-    }
-  }
-  
-  const cancel = () => {
-    router.push('/posts')
   }
   </script>
   
@@ -93,38 +95,50 @@
     display: flex;
     justify-content: center;
     min-height: 80vh;
+    padding: 1.5rem;
   }
   
   .post-form {
     width: 100%;
     max-width: 800px;
-    padding: 2rem;
-    background: white;
+    padding: 1.5rem;
+    background: var(--card-bg);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
   }
   
-  h2 {
+  h1 {
     margin: 0 0 1.5rem;
-    color: #333;
+    color: var(--text-color);
+    font-size: 1.5rem;
   }
   
   .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
   }
   
   label {
     display: block;
     margin-bottom: 0.5rem;
-    color: #666;
+    color: var(--text-color);
+    font-weight: 500;
   }
   
   input, textarea {
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
+    background: var(--card-bg);
+    color: var(--text-color);
+    transition: border-color 0.2s;
+  }
+  
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
   }
   
   textarea {
@@ -132,41 +146,34 @@
     min-height: 200px;
   }
   
-  .form-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-  }
-  
-  button {
+  .submit-btn {
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 4px;
     font-size: 1rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s;
-  }
-  
-  button[type="submit"] {
-    background-color: #4CAF50;
+    transition: all 0.2s;
+    background-color: var(--primary-color);
     color: white;
   }
   
-  button[type="submit"]:hover {
-    background-color: #45a049;
+  .submit-btn:hover {
+    background-color: #357abd;
+    transform: translateY(-1px);
   }
   
-  button[type="submit"]:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-  }
+  @media (max-width: 768px) {
+    .post-form-container {
+      padding: 1rem;
+    }
   
-  .cancel-button {
-    background-color: #f44336;
-    color: white;
-  }
+    .post-form {
+      padding: 1rem;
+    }
   
-  .cancel-button:hover {
-    background-color: #d32f2f;
+    h1 {
+      font-size: 1.25rem;
+    }
   }
   </style>

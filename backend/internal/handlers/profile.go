@@ -27,10 +27,10 @@ func NewProfileHandler(db *sqlx.DB) *ProfileHandler {
 }
 
 func (h *ProfileHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID := r.Context().Value("user_id").(int64)
 
 	var user struct {
-		ID       int    `json:"id"`
+		ID       int64  `json:"id"`
 		Username string `json:"username"`
 		Email    string `json:"email"`
 	}
@@ -46,7 +46,7 @@ func (h *ProfileHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *ProfileHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID := r.Context().Value("user_id").(int64)
 
 	var stats struct {
 		Posts    int `json:"posts"`
@@ -70,7 +70,7 @@ func (h *ProfileHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProfileHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID := r.Context().Value("user_id").(int64)
 
 	var data struct {
 		CurrentPassword string `json:"currentPassword"`

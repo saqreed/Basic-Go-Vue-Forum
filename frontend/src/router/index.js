@@ -1,21 +1,26 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import Home from '../views/Home.vue'
+import Login from '../views/Login.vue'
+import Register from '../views/Register.vue'
+import PostDetail from '../views/PostDetail.vue'
+import Chat from '../views/Chat.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: () => import('../views/Home.vue')
+    name: 'home',
+    component: Home
   },
   {
     path: '/login',
-    name: 'Login',
-    component: () => import('../views/Login.vue')
+    name: 'login',
+    component: Login
   },
   {
     path: '/register',
-    name: 'Register',
-    component: () => import('../views/Register.vue')
+    name: 'register',
+    component: Register
   },
   {
     path: '/posts',
@@ -24,13 +29,20 @@ const routes = [
   },
   {
     path: '/posts/:id',
-    name: 'PostDetail',
-    component: () => import('../views/PostDetail.vue')
+    name: 'post-detail',
+    component: PostDetail
   },
   {
     path: '/posts/create',
     name: 'CreatePost',
-    component: () => import('../views/CreatePost.vue')
+    component: () => import('../views/CreatePost.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/posts/:id/edit',
+    name: 'EditPost',
+    component: () => import('../views/CreatePost.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/admin',
@@ -61,25 +73,36 @@ const routes = [
     name: 'Profile',
     component: () => import('../views/Profile.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('../views/admin/Dashboard.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/chat',
+    name: 'chat',
+    component: Chat
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 
-// Добавляем проверку на админские права и аутентификацию
+// Навигационный гвард
 router.beforeEach((to, from, next) => {
+  const publicPages = ['/login', '/register']
+  const authRequired = !publicPages.includes(to.path)
   const authStore = useAuthStore()
-  
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (to.meta.requiresAdmin && (!authStore.isAuthenticated || authStore.user?.role !== 'admin')) {
-    next('/login')
-  } else {
-    next()
+
+  if (authRequired && !authStore.isAuthenticated) {
+    return next('/login')
   }
+
+  next()
 })
 
 export default router 

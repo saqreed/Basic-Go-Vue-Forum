@@ -9,8 +9,24 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   actions: {
+    async fetchUserData() {
+      try {
+        const response = await axios.get('http://localhost:8081/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        })
+        this.user = response.data
+        this.isAuthenticated = true
+      } catch (error) {
+        console.error('Failed to fetch user data:', error)
+        this.logout()
+      }
+    },
+
     async login(email, password) {
       try {
+        console.log('Attempting login with:', { email })
         const response = await axios.post('http://localhost:8081/api/login', {
           email,
           password
@@ -21,14 +37,20 @@ export const useAuthStore = defineStore('auth', {
         })
         
         if (response.data.token) {
+          console.log('Login successful, received token:', response.data.token)
           this.token = response.data.token
           this.isAuthenticated = true
           localStorage.setItem('token', this.token)
           axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`
+          console.log('Token stored and axios headers updated')
+          
+          // Fetch user data after successful login
+          await this.fetchUserData()
           return true
         }
         return false
       } catch (error) {
+        console.error('Login error:', error)
         throw error
       }
     },
@@ -55,10 +77,15 @@ export const useAuthStore = defineStore('auth', {
         console.log('Registration response:', response.data)
         
         if (response.data.token) {
+          console.log('Registration successful, received token:', response.data.token)
           this.token = response.data.token
           this.isAuthenticated = true
           localStorage.setItem('token', this.token)
           axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`
+          console.log('Token stored and axios headers updated')
+          
+          // Fetch user data after successful registration
+          await this.fetchUserData()
           return true
         }
         return false
@@ -77,20 +104,31 @@ export const useAuthStore = defineStore('auth', {
     },
 
     logout() {
+      console.log('Logging out, clearing token and auth state')
       this.user = null
       this.token = null
       this.isAuthenticated = false
       localStorage.removeItem('token')
       delete axios.defaults.headers.common['Authorization']
+      console.log('Token cleared and axios headers removed')
     },
 
     // Инициализация при загрузке приложения
-    initialize() {
+    async initialize() {
+      console.log('Initializing auth store')
       const token = localStorage.getItem('token')
+      console.log('Token from localStorage:', token ? 'exists' : 'not found')
       if (token) {
+        console.log('Token found, setting up auth state')
         this.token = token
         this.isAuthenticated = true
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        console.log('Auth store initialized with token:', token)
+        
+        // Fetch user data on initialization
+        await this.fetchUserData()
+      } else {
+        console.log('No token found, auth store not initialized')
       }
     }
   }

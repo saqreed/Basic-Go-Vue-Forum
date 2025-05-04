@@ -28,7 +28,6 @@ func InitDB() error {
 		return fmt.Errorf("error opening database: %v", err)
 	}
 
-	// Устанавливаем максимальное количество открытых соединений
 	DB.SetMaxOpenConns(25)
 	DB.SetMaxIdleConns(25)
 

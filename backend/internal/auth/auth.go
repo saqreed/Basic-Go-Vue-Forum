@@ -2,8 +2,12 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 	"time"
+
+	"forum/config"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
@@ -11,22 +15,25 @@ import (
 )
 
 type AuthService struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	cfg *config.Config
 }
 
 func NewAuthService(db *sqlx.DB) *AuthService {
-	return &AuthService{db: db}
+	return &AuthService{
+		db:  db,
+		cfg: config.LoadConfig(),
+	}
 }
 
 type Claims struct {
-	UserID int    `json:"user_id"`
+	UserID int64  `json:"user_id"`
 	Role   string `json:"role"`
 	jwt.StandardClaims
 }
 
 const (
-	JWTSecret = "your-secret-key" // TODO: Move to config
-	TokenExp  = 24 * time.Hour
+	TokenExp = 24 * time.Hour
 )
 
 func (s *AuthService) Register(w http.ResponseWriter, r *http.Request) {
@@ -54,10 +61,11 @@ func (s *AuthService) Register(w http.ResponseWriter, r *http.Request) {
 
 	var id int
 	err = s.db.QueryRowx(
-		"INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, 'user') RETURNING id",
+		"INSERT INTO users (username, email, password, role, created_at, updated_at) VALUES ($1, $2, $3, 'user', $4, $4) RETURNING id",
 		user.Username,
 		user.Email,
 		string(hashedPassword),
+		time.Now(),
 	).Scan(&id)
 
 	if err != nil {
@@ -98,7 +106,7 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims := Claims{
-		UserID: user.ID,
+		UserID: int64(user.ID),
 		Role:   user.Role,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(TokenExp).Unix(),
@@ -106,7 +114,7 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(JWTSecret))
+	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -123,7 +131,7 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *AuthService) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID := r.Context().Value("user_id").(int64)
 
 	var data struct {
 		CurrentPassword string `json:"currentPassword"`
@@ -170,4 +178,18 @@ func checkPasswordHash(password, hash string) bool {
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
+}
+
+func ValidateToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
 }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useAuthStore } from './auth'
 
 export const useCommentsStore = defineStore('comments', {
   state: () => ({
@@ -11,11 +12,19 @@ export const useCommentsStore = defineStore('comments', {
   actions: {
     async fetchComments(postId) {
       this.loading = true
+      this.error = null
       try {
-        const response = await axios.get(`http://localhost:8081/api/posts/${postId}/comments`)
-        this.comments = response.data
+        const authStore = useAuthStore()
+        const response = await axios.get(`http://localhost:8081/api/posts/${postId}/comments`, {
+          headers: {
+            'Authorization': `Bearer ${authStore.token}`
+          }
+        })
+        this.comments = response.data || []
       } catch (error) {
-        this.error = error.message
+        console.error('Failed to fetch comments:', error)
+        this.error = error.response?.data || error.message
+        this.comments = []
       } finally {
         this.loading = false
       }
@@ -23,21 +32,31 @@ export const useCommentsStore = defineStore('comments', {
 
     async addComment(postId, content) {
       this.loading = true
+      this.error = null
       try {
-        const token = localStorage.getItem('token')
+        const authStore = useAuthStore()
+        if (!authStore.token) {
+          throw new Error('Not authenticated')
+        }
+        
         const response = await axios.post(
           `http://localhost:8081/api/posts/${postId}/comments`,
           { content },
           {
             headers: {
-              Authorization: `Bearer ${token}`
+              'Authorization': `Bearer ${authStore.token}`,
+              'Content-Type': 'application/json'
             }
           }
         )
-        this.comments.push(response.data)
+        
+        if (response.data) {
+          this.comments = [response.data, ...(this.comments || [])]
+        }
         return response.data
       } catch (error) {
-        this.error = error.message
+        console.error('Failed to add comment:', error)
+        this.error = error.response?.data || error.message
         throw error
       } finally {
         this.loading = false
@@ -46,24 +65,27 @@ export const useCommentsStore = defineStore('comments', {
 
     async updateComment(commentId, content) {
       this.loading = true
+      this.error = null
       try {
-        const token = localStorage.getItem('token')
+        const authStore = useAuthStore()
         const response = await axios.put(
           `http://localhost:8081/api/comments/${commentId}`,
           { content },
           {
             headers: {
-              Authorization: `Bearer ${token}`
+              'Authorization': `Bearer ${authStore.token}`,
+              'Content-Type': 'application/json'
             }
           }
         )
-        const index = this.comments.findIndex(comment => comment.id === commentId)
+        const index = (this.comments || []).findIndex(comment => comment.id === commentId)
         if (index !== -1) {
           this.comments[index] = response.data
         }
         return response.data
       } catch (error) {
-        this.error = error.message
+        console.error('Failed to update comment:', error)
+        this.error = error.response?.data || error.message
         throw error
       } finally {
         this.loading = false
@@ -72,16 +94,18 @@ export const useCommentsStore = defineStore('comments', {
 
     async deleteComment(commentId) {
       this.loading = true
+      this.error = null
       try {
-        const token = localStorage.getItem('token')
+        const authStore = useAuthStore()
         await axios.delete(`http://localhost:8081/api/comments/${commentId}`, {
           headers: {
-            Authorization: `Bearer ${token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
-        this.comments = this.comments.filter(comment => comment.id !== commentId)
+        this.comments = (this.comments || []).filter(comment => comment.id !== commentId)
       } catch (error) {
-        this.error = error.message
+        console.error('Failed to delete comment:', error)
+        this.error = error.response?.data || error.message
         throw error
       } finally {
         this.loading = false
@@ -91,6 +115,7 @@ export const useCommentsStore = defineStore('comments', {
     clearComments() {
       this.comments = []
       this.error = null
+      this.loading = false
     }
   }
 })

@@ -16,7 +16,7 @@
         <div v-for="post in posts" :key="post.id" class="post-card">
           <div class="post-header">
             <h2 class="post-title">
-              <router-link :to="'/post/' + post.id">{{ post.title }}</router-link>
+              <router-link :to="'/posts/' + post.id">{{ post.title }}</router-link>
             </h2>
             <span class="post-author">Автор: {{ post.author?.username || 'Неизвестный автор' }}</span>
           </div>
@@ -63,93 +63,189 @@
   
   <style scoped>
   .posts-container {
+    width: 100%;
     max-width: 800px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.5rem;
   }
   
   .posts-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  h1 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 1.75rem;
   }
   
   .create-post-btn {
-    padding: 0.5rem 1rem;
-    background-color: #4CAF50;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
     color: white;
-    text-decoration: none;
+    border: none;
     border-radius: 4px;
-    transition: background-color 0.3s;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
   }
   
   .create-post-btn:hover {
-    background-color: #45a049;
+    background-color: #357abd;
+    transform: translateY(-1px);
   }
   
   .posts-list {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
   }
   
   .post-card {
-    padding: 1.5rem;
-    border: 1px solid #ddd;
+    background: var(--card-bg);
     border-radius: 8px;
-    background-color: white;
+    padding: 1.25rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+  }
+  
+  .post-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
   
   .post-header {
-    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
   }
   
   .post-title {
     margin: 0;
-    font-size: 1.5rem;
+    color: var(--text-color);
+    font-size: 1.25rem;
+    font-weight: 600;
   }
   
-  .post-title a {
-    color: #333;
-    text-decoration: none;
-  }
-  
-  .post-title a:hover {
-    color: #4CAF50;
-  }
-  
-  .post-author {
-    color: #666;
-    font-size: 0.9rem;
+  .post-meta {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
   }
   
   .post-content {
+    color: var(--text-color);
     margin-bottom: 1rem;
-    line-height: 1.6;
+    line-height: 1.5;
+    max-height: 4.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
   }
   
   .post-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #666;
-    font-size: 0.9rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
   }
   
   .post-stats {
     display: flex;
     gap: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
   }
   
-  .loading, .error, .no-posts {
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .read-more {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  
+  .read-more:hover {
+    color: #357abd;
+  }
+  
+  .loading, .error {
     text-align: center;
     padding: 2rem;
-    color: #666;
+    color: var(--text-color);
   }
   
   .error {
-    color: #f44336;
+    color: #dc3545;
+  }
+  
+  .no-posts {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-color);
+    font-size: 1rem;
+  }
+  
+  @media (max-width: 768px) {
+    .posts-container {
+      padding: 1rem;
+    }
+  
+    .posts-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+  
+    h1 {
+      font-size: 1.5rem;
+    }
+  
+    .create-post-btn {
+      width: 100%;
+      text-align: center;
+    }
+  
+    .post-card {
+      padding: 1rem;
+    }
+  
+    .post-title {
+      font-size: 1.125rem;
+    }
+  
+    .post-meta {
+      font-size: 0.75rem;
+    }
+  
+    .post-content {
+      font-size: 0.9375rem;
+    }
+  
+    .post-footer {
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+  
+    .post-stats {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
   </style>

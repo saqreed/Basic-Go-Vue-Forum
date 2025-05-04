@@ -31,12 +31,17 @@ func main() {
 	r.HandleFunc("/api/posts/{id}", handlers.GetPost).Methods("GET")
 	r.HandleFunc("/api/posts/{post_id}/comments", handlers.GetComments).Methods("GET")
 
+	// WebSocket handler with proper middleware order
+	wsHandler := middleware.WebSocketAuthMiddleware(http.HandlerFunc(handlers.HandleChat))
+	r.Handle("/ws/chat", wsHandler).Methods("GET")
+
 	authRouter := r.PathPrefix("/api").Subrouter()
 	authRouter.Use(middleware.AuthMiddleware)
 
 	profileHandler := handlers.NewProfileHandler(database.DB)
-	authRouter.Handle("/profile/stats", http.HandlerFunc(profileHandler.GetUserStats)).Methods("GET")
-	authRouter.Handle("/profile/password", http.HandlerFunc(profileHandler.ChangePassword)).Methods("PUT")
+	authRouter.HandleFunc("/profile", profileHandler.GetUserProfile).Methods("GET")
+	authRouter.HandleFunc("/profile/stats", profileHandler.GetUserStats).Methods("GET")
+	authRouter.HandleFunc("/profile/password", profileHandler.ChangePassword).Methods("PUT")
 
 	authRouter.HandleFunc("/posts", handlers.CreatePost).Methods("POST")
 	authRouter.HandleFunc("/posts/{id}", handlers.UpdatePost).Methods("PUT")
@@ -68,6 +73,13 @@ func main() {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			// Для WebSocket соединений
+			if r.Header.Get("Upgrade") == "websocket" {
+				next.ServeHTTP(w, r)
+				return
+			}
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -94,6 +106,9 @@ func main() {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
+
+	// Запускаем обработку широковещательных сообщений
+	go handlers.BroadcastMessages()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

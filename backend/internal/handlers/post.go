@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"forum/internal/database"
 	"forum/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -38,7 +40,8 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 
 func GetPosts(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT p.id, p.title, p.content, p.author_id, p.created_at, p.updated_at,
-			  u.id, u.username, u.email, u.role, u.created_at
+			  u.id, u.username, u.email, u.role, u.created_at,
+			  (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count
 			  FROM posts p
 			  JOIN users u ON p.author_id = u.id
 			  ORDER BY p.created_at DESC`
@@ -54,15 +57,18 @@ func GetPosts(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var post models.PostResponse
 		var author models.UserResponse
+		var commentsCount int
 		err := rows.Scan(
 			&post.ID, &post.Title, &post.Content, &post.AuthorID, &post.CreatedAt, &post.UpdatedAt,
 			&author.ID, &author.Username, &author.Email, &author.Role, &author.CreatedAt,
+			&commentsCount,
 		)
 		if err != nil {
 			http.Error(w, "Failed to scan post", http.StatusInternalServerError)
 			return
 		}
 		post.Author = author
+		post.CommentsCount = commentsCount
 		posts = append(posts, post)
 	}
 
@@ -142,18 +148,33 @@ func DeletePost(w http.ResponseWriter, r *http.Request) {
 	userRole := r.Context().Value("role").(string)
 
 	var query string
+	var result sql.Result
 	if userRole == "admin" {
 		query = `DELETE FROM posts WHERE id = $1`
-		err = database.DB.QueryRow(query, postID).Scan()
+		result, err = database.DB.Exec(query, postID)
 	} else {
 		query = `DELETE FROM posts WHERE id = $1 AND author_id = $2`
-		err = database.DB.QueryRow(query, postID, userID).Scan()
+		result, err = database.DB.Exec(query, postID, userID)
 	}
 
 	if err != nil {
+		log.Printf("Error deleting post: %v", err)
 		http.Error(w, "Failed to delete post", http.StatusInternalServerError)
 		return
 	}
 
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("Error getting rows affected: %v", err)
+		http.Error(w, "Failed to check deletion result", http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, "Post not found or unauthorized", http.StatusNotFound)
+		return
+	}
+
 	w.WriteHeader(http.StatusNoContent)
+	w.Write([]byte{})
 }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useAuthStore } from './auth'
 
 export const usePostsStore = defineStore('posts', {
   state: () => ({
@@ -13,7 +14,12 @@ export const usePostsStore = defineStore('posts', {
     async fetchPosts() {
       this.loading = true
       try {
-        const response = await axios.get('http://localhost:8081/api/posts')
+        const authStore = useAuthStore()
+        const response = await axios.get('http://localhost:8081/api/posts', {
+          headers: {
+            'Authorization': `Bearer ${authStore.token}`
+          }
+        })
         this.posts = Array.isArray(response.data) ? response.data : []
       } catch (error) {
         this.error = error.message
@@ -26,7 +32,12 @@ export const usePostsStore = defineStore('posts', {
     async fetchPost(id) {
       this.loading = true
       try {
-        const response = await axios.get(`http://localhost:8081/api/posts/${id}`)
+        const authStore = useAuthStore()
+        const response = await axios.get(`http://localhost:8081/api/posts/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${authStore.token}`
+          }
+        })
         this.currentPost = response.data
       } catch (error) {
         this.error = error.message
@@ -39,17 +50,18 @@ export const usePostsStore = defineStore('posts', {
     async createPost(postData) {
       this.loading = true
       try {
-        const token = localStorage.getItem('token')
+        const authStore = useAuthStore()
+        console.log('Creating post with token:', authStore.token ? 'exists' : 'not found')
         const response = await axios.post('http://localhost:8081/api/posts', postData, {
           headers: {
-            Authorization: `Bearer ${token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
         
-        // Create a new array with the new post at the beginning
         this.posts = [response.data, ...(this.posts || [])]
         return response.data
       } catch (error) {
+        console.error('Create post error:', error)
         this.error = error.message
         throw error
       } finally {
@@ -60,14 +72,13 @@ export const usePostsStore = defineStore('posts', {
     async updatePost(id, postData) {
       this.loading = true
       try {
-        const token = localStorage.getItem('token')
+        const authStore = useAuthStore()
         const response = await axios.put(`http://localhost:8081/api/posts/${id}`, postData, {
           headers: {
-            Authorization: `Bearer ${token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
         
-        // Create a new array with the updated post
         this.posts = this.posts.map(post => 
           post.id === id ? response.data : post
         )
@@ -80,23 +91,25 @@ export const usePostsStore = defineStore('posts', {
       }
     },
 
-    async deletePost(id) {
-      this.loading = true
+    async deletePost(postId) {
       try {
-        const token = localStorage.getItem('token')
-        await axios.delete(`http://localhost:8081/api/posts/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
-        
-        // Create a new array without the deleted post
-        this.posts = this.posts.filter(post => post.id !== id)
+        await axios.delete(`http://localhost:8081/api/posts/${postId}`)
+        // Удаляем пост из локального состояния
+        this.posts = this.posts.filter(post => post.id !== postId)
+        if (this.currentPost && this.currentPost.id === postId) {
+          this.currentPost = null
+        }
       } catch (error) {
-        this.error = error.message
-        throw error
-      } finally {
-        this.loading = false
+        if (error.response) {
+          // Сервер вернул ошибку
+          throw new Error(error.response.data || 'Failed to delete post')
+        } else if (error.request) {
+          // Запрос был сделан, но ответ не получен
+          throw new Error('No response from server')
+        } else {
+          // Ошибка при настройке запроса
+          throw new Error('Failed to send request')
+        }
       }
     }
   }

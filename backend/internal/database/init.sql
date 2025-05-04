@@ -30,6 +30,15 @@ CREATE TABLE comments (
     updated_at TIMESTAMP NOT NULL
 );
 
+CREATE TABLE chat_messages (
+    id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_posts_author_id ON posts(author_id);
 CREATE INDEX idx_comments_post_id ON comments(post_id);
-CREATE INDEX idx_comments_author_id ON comments(author_id); 
+CREATE INDEX idx_comments_author_id ON comments(author_id);
+CREATE INDEX idx_chat_messages_user_id ON chat_messages(user_id);
+CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at); 

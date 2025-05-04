@@ -24,65 +24,111 @@
 <style scoped>
 .home {
   max-width: 800px;
+  width: 100%;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
 }
 
 h1 {
-  margin-bottom: 2rem;
-  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+  font-size: 2rem;
 }
 
 .content {
-  background-color: white;
-  padding: 2rem;
+  background-color: var(--card-bg);
+  padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
 }
 
 ul {
   list-style: none;
   padding: 0;
-  margin: 2rem 0;
+  margin: 1.5rem 0;
+  text-align: left;
 }
 
 li {
   margin: 1rem 0;
-  color: #2c3e50;
+  color: var(--text-color);
   font-size: 1.1rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+li::before {
+  content: "•";
+  color: var(--primary-color);
+  position: absolute;
+  left: 0;
 }
 
 .actions {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .btn {
   padding: 0.75rem 1.5rem;
   border-radius: 4px;
   text-decoration: none;
-  font-weight: bold;
-  transition: background-color 0.3s;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 200px;
 }
 
 .primary {
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   color: white;
 }
 
 .primary:hover {
-  background-color: #45a049;
+  background-color: #357abd;
+  transform: translateY(-1px);
 }
 
 .secondary {
-  background-color: #2196F3;
-  color: white;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 .secondary:hover {
-  background-color: #1e88e5;
+  background-color: var(--border-color);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .home {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  li {
+    font-size: 1rem;
+  }
+
+  .btn {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
 }
 </style> 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"forum/internal/database"
 	"forum/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,26 +13,61 @@ import (
 )
 
 func CreateComment(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	postID, err := strconv.ParseInt(vars["post_id"], 10, 64)
+	if err != nil {
+		log.Printf("Invalid post ID: %v", err)
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем существование поста
+	var postExists bool
+	err = database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)", postID).Scan(&postExists)
+	if err != nil {
+		log.Printf("Failed to check post existence: %v", err)
+		http.Error(w, "Failed to check post existence", http.StatusInternalServerError)
+		return
+	}
+
+	if !postExists {
+		log.Printf("Post with ID %d does not exist", postID)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
 	var comment models.Comment
 	if err := json.NewDecoder(r.Body).Decode(&comment); err != nil {
+		log.Printf("Failed to decode request body: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userID := r.Context().Value("user_id").(int64)
+	userID, ok := r.Context().Value("user_id").(int64)
+	if !ok {
+		log.Printf("User ID not found in context")
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	comment.PostID = postID
 	comment.AuthorID = userID
 	comment.CreatedAt = time.Now()
 	comment.UpdatedAt = time.Now()
 
+	log.Printf("Creating comment: PostID=%d, AuthorID=%d, Content=%s", comment.PostID, comment.AuthorID, comment.Content)
+
 	query := `INSERT INTO comments (content, post_id, author_id, created_at, updated_at)
 			  VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	err := database.DB.QueryRow(query, comment.Content, comment.PostID, comment.AuthorID, comment.CreatedAt, comment.UpdatedAt).Scan(&comment.ID)
+	err = database.DB.QueryRow(query, comment.Content, comment.PostID, comment.AuthorID, comment.CreatedAt, comment.UpdatedAt).Scan(&comment.ID)
 	if err != nil {
+		log.Printf("Failed to create comment: %v", err)
 		http.Error(w, "Failed to create comment", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("Successfully created comment with ID: %d", comment.ID)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(comment)
 }

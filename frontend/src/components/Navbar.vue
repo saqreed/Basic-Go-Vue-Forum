@@ -10,6 +10,7 @@
           <router-link to="/register" class="navbar-item">Register</router-link>
         </template>
         <template v-else>
+          <router-link to="/chat" class="navbar-item">Chat</router-link>
           <router-link to="/posts/create" class="navbar-item">Create Post</router-link>
           <router-link to="/profile" class="navbar-item">Profile</router-link>
           <router-link v-if="authStore.user?.role === 'admin'" to="/admin" class="navbar-item">Admin Panel</router-link>
