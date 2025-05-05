@@ -31,9 +31,8 @@ func main() {
 	r.HandleFunc("/api/posts/{id}", handlers.GetPost).Methods("GET")
 	r.HandleFunc("/api/posts/{post_id}/comments", handlers.GetComments).Methods("GET")
 
-	// WebSocket handler with proper middleware order
-	wsHandler := middleware.WebSocketAuthMiddleware(http.HandlerFunc(handlers.HandleChat))
-	r.Handle("/ws/chat", wsHandler).Methods("GET")
+	// WebSocket routes
+	r.HandleFunc("/ws/chat", middleware.AuthMiddleware(handlers.HandleWebSocket))
 
 	authRouter := r.PathPrefix("/api").Subrouter()
 	authRouter.Use(middleware.AuthMiddleware)

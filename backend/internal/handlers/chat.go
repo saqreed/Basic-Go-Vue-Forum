@@ -21,122 +21,118 @@ var upgrader = websocket.Upgrader{
 	HandshakeTimeout: 10 * time.Second,
 }
 
-var clients = make(map[*websocket.Conn]bool)
+var clients = make(map[*websocket.Conn]int)
 var broadcast = make(chan models.ChatMessageResponse)
 
-func HandleChat(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Incoming WebSocket request from %s", r.RemoteAddr)
-	log.Printf("Request headers: %v", r.Header)
-
-	// Проверяем, что это WebSocket запрос
-	if !websocket.IsWebSocketUpgrade(r) {
-		log.Printf("Not a WebSocket upgrade request")
-		http.Error(w, "Not a websocket handshake", http.StatusBadRequest)
-		return
-	}
-
-	// Получаем user_id из контекста перед установкой соединения
-	userID, ok := r.Context().Value("user_id").(int64)
-	if !ok {
-		log.Printf("User not authenticated")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
+func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(int)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade connection: %v", err)
+		log.Printf("Error upgrading to WebSocket: %v", err)
 		return
 	}
-	defer func() {
-		conn.Close()
-		delete(clients, conn)
-		log.Printf("Client disconnected. Total clients: %d", len(clients))
-	}()
+	defer conn.Close()
 
-	clients[conn] = true
-	log.Printf("New client connected. Total clients: %d", len(clients))
+	clients[conn] = userID
 
-	// Отправляем последние 50 сообщений новому клиенту
-	messages, err := getLastMessages(50)
+	// Send last 50 messages
+	messages, err := database.GetLastMessages(50)
 	if err != nil {
-		log.Printf("Failed to get last messages: %v", err)
-	} else {
-		for _, msg := range messages {
-			if err := conn.WriteJSON(msg); err != nil {
-				log.Printf("Failed to send message: %v", err)
-				return
+		log.Printf("Error getting messages: %v", err)
+		return
+	}
+
+	// Get usernames for messages
+	for i := range messages {
+		username, err := database.GetUsernameByID(messages[i].UserID)
+		if err != nil {
+			log.Printf("Error getting username: %v", err)
+			continue
+		}
+		messages[i].Username = username
+
+		// If message is a reply, get reply information
+		if messages[i].ReplyToID != nil {
+			replyMsg, err := database.GetMessageByID(*messages[i].ReplyToID)
+			if err != nil {
+				log.Printf("Error getting reply message: %v", err)
+				continue
+			}
+			replyUsername, err := database.GetUsernameByID(replyMsg.UserID)
+			if err != nil {
+				log.Printf("Error getting reply username: %v", err)
+				continue
+			}
+			messages[i].ReplyTo = &models.ReplyTo{
+				ID:       replyMsg.ID,
+				Content:  replyMsg.Content,
+				Username: replyUsername,
 			}
 		}
 	}
 
-	// Устанавливаем таймауты для чтения и записи
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		return nil
-	})
+	if err := conn.WriteJSON(messages); err != nil {
+		log.Printf("Error sending messages: %v", err)
+		return
+	}
 
-	// Запускаем пинг-понг
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					log.Printf("Failed to send ping: %v", err)
-					return
-				}
-			}
-		}
-	}()
-
-	// Обработка сообщений
 	for {
-		var msg models.ChatMessage
+		var msg models.ChatMessageRequest
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Error reading message: %v", err)
-			}
-			return
+			log.Printf("Error reading message: %v", err)
+			delete(clients, conn)
+			break
 		}
 
-		msg.UserID = userID
-		msg.CreatedAt = time.Now()
-
-		// Сохраняем сообщение в базу данных
-		query := `INSERT INTO chat_messages (content, user_id, created_at)
-				  VALUES ($1, $2, $3) RETURNING id`
-		err = database.DB.QueryRow(query, msg.Content, msg.UserID, msg.CreatedAt).Scan(&msg.ID)
-		if err != nil {
-			log.Printf("Failed to save message: %v", err)
-			continue
-		}
-
-		// Получаем информацию о пользователе
-		response := models.ChatMessageResponse{
-			ID:        msg.ID,
+		message := models.ChatMessage{
 			Content:   msg.Content,
-			CreatedAt: msg.CreatedAt,
+			UserID:    userID,
+			ReplyToID: msg.ReplyToID,
+			CreatedAt: time.Now(),
 		}
 
-		query = `SELECT id, username, email, role, created_at
-				 FROM users WHERE id = $1`
-		var user models.UserResponse
-		err = database.DB.QueryRow(query, msg.UserID).Scan(
-			&user.ID, &user.Username, &user.Email, &user.Role, &user.CreatedAt,
-		)
-		if err != nil {
-			log.Printf("Failed to get user info: %v", err)
+		// Save message to database
+		if err := database.SaveMessage(message); err != nil {
+			log.Printf("Error saving message: %v", err)
 			continue
 		}
-		response.User = user
 
-		// Отправляем сообщение всем клиентам
-		broadcast <- response
+		// Get username for the message
+		username, err := database.GetUsernameByID(userID)
+		if err != nil {
+			log.Printf("Error getting username: %v", err)
+			continue
+		}
+		message.Username = username
+
+		// If message is a reply, get reply information
+		if message.ReplyToID != nil {
+			replyMsg, err := database.GetMessageByID(*message.ReplyToID)
+			if err != nil {
+				log.Printf("Error getting reply message: %v", err)
+				continue
+			}
+			replyUsername, err := database.GetUsernameByID(replyMsg.UserID)
+			if err != nil {
+				log.Printf("Error getting reply username: %v", err)
+				continue
+			}
+			message.ReplyTo = &models.ReplyTo{
+				ID:       replyMsg.ID,
+				Content:  replyMsg.Content,
+				Username: replyUsername,
+			}
+		}
+
+		// Broadcast message to all clients
+		for client := range clients {
+			if err := client.WriteJSON(message); err != nil {
+				log.Printf("Error broadcasting message: %v", err)
+				client.Close()
+				delete(clients, client)
+			}
+		}
 	}
 }
 
